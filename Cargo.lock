@@ -216,6 +216,7 @@ version = "0.1.0"
 dependencies = [
  "lazy_static",
  "panic-halt",
+ "riscv",
  "riscv-rt",
  "spin 0.10.0",
  "uart_16550",

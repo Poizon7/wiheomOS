@@ -6,7 +6,8 @@ use core::str;
 
 use crate::serial::SERIAL1;
 
-mod serial;
+pub mod serial;
+mod exception;
 
 // Use `main` as the entry point of this application, which may not return.
 #[riscv_rt::entry]

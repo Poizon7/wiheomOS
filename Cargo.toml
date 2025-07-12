@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+riscv-rt = { version="0.15.0" , features=["u-boot", "s-mode"] }
+panic-halt = "1.0.0"
+uart_16550 = "0.3.2"

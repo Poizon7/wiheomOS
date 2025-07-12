@@ -1,22 +1,18 @@
 #![no_main]
 #![no_std]
 
-use core::fmt::Write;
+use core::panic::PanicInfo;
+use core::str;
 
-// make sure the panic handler is linked in
-extern crate panic_halt;
-use uart_16550::MmioSerialPort;
+use crate::serial::SERIAL1;
 
-const SERIAL_PORT_BASE_ADDRESS: usize = 0x1000_0000;
+mod serial;
 
 // Use `main` as the entry point of this application, which may not return.
 #[riscv_rt::entry]
 fn main() -> ! {
-    let mut serial_port = unsafe { MmioSerialPort::new(SERIAL_PORT_BASE_ADDRESS) };
-    serial_port.init();
-
     // Now the serial port is ready to be used. To send a byte:
-    writeln!(serial_port, "Hello World!").ok();
+    println!("Hello World!");
 
     loop {
         let mut data = [0; 16];
@@ -24,22 +20,25 @@ fn main() -> ! {
 
         // To receive a byte:
         loop {
-            let byte = serial_port.receive();
+            let byte = SERIAL1.lock().receive();
             if byte == 13 {
                 // ASCII code for carriage return
                 break;
             }
-            serial_port.send(byte);
+            print!("{}", byte as char);
             data[i] = byte;
             i += 1;
         }
-        serial_port.send(13);
-        serial_port.send(10);
 
-        for i in data {
-            serial_port.send(i);
-        }
-        serial_port.send(13);
-        serial_port.send(10);
+        println!();
+        let text = unsafe { str::from_utf8_unchecked(&data) };
+
+        println!("{}", text);
     }
+}
+
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
+    loop {}
 }

@@ -1,9 +1,9 @@
-[target.riscv32imac-unknown-none-elf]
+[target.riscv64gc-unknown-none-elf]
 rustflags = [
   "-C", "link-arg=-Tmemory.x", # memory.x must appear BEFORE link.x
   "-C", "link-arg=-Tlink.x",
 ]
-    runner = "qemu-system-riscv32 -M virt -nographic --kernel"
+    runner = "qemu-system-riscv64 -M virt -nographic --kernel"
 
 [build]
-target = "riscv32imac-unknown-none-elf"
+target = "riscv64gc-unknown-none-elf"

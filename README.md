@@ -6,5 +6,5 @@ An rust-based operating system, targeting risc-v.
 
 - Add risc-v target from `rustup`
     - `rustup target add riscv64gc-unknown-none-elf`
-- Intall `qemu`
+- Install `qemu`
 - Run `cargo build` or `cargo run` to start qemu

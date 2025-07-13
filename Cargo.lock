@@ -127,6 +127,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8188909339ccc0c68cfb5a04648313f09621e8b87dc03095454f1a11f6c5d436"
 
 [[package]]
+name = "riscv-peripheral"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d50c11ddf3e2a21206642bfe6d5e06f76d5225c1fbece09952dcd40f8c49409a"
+dependencies = [
+ "embedded-hal",
+ "paste",
+ "riscv",
+ "riscv-pac",
+]
+
+[[package]]
 name = "riscv-rt"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -217,6 +229,7 @@ dependencies = [
  "lazy_static",
  "panic-halt",
  "riscv",
+ "riscv-peripheral",
  "riscv-rt",
  "spin 0.10.0",
  "uart_16550",

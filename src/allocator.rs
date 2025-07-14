@@ -2,7 +2,7 @@ use crate::println;
 use memory_addr::{
     PAGE_SIZE_4K, PageIter, PhysAddr, VirtAddr, align_down_4k, align_up_4k,
 };
-use page_table_multiarch::riscv::Sv48PageTable;
+use page_table_multiarch::riscv::Sv39PageTable;
 use page_table_multiarch::{MappingFlags, PageSize, PagingResult};
 use crate::allocator::buddy::BuddyAllocator;
 use crate::page::FrameAllocator;
@@ -34,7 +34,7 @@ pub const HEAP_SIZE: usize = 1024;
 // pub const STACK_START: usize = RAM_START + RAM_SIZE;
 // pub const STACK_SIZE: usize = 1024;
 
-pub fn init_heap(page_table: &mut Sv48PageTable<FrameAllocator>) -> PagingResult {
+pub fn init_heap(page_table: &mut Sv39PageTable<FrameAllocator>) -> PagingResult {
     println!("Initializing kernel heap");
     let heap_start = riscv_rt::heap_start() as usize;
     let heap_end = heap_start + HEAP_SIZE - 1usize;

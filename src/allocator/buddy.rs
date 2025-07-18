@@ -1,12 +1,15 @@
+use crate::println;
+
 use super::Locked;
 use core::alloc::{GlobalAlloc, Layout};
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Flag {
     Free,
     Taken,
 }
 
+#[derive(Debug)]
 struct ListNode {
     flag: Flag,
     level: u8,
@@ -15,8 +18,10 @@ struct ListNode {
 }
 
 const MIN: u8 = 5;
-const LEVELS: u8 = 8;
-// const PAGE: u32 = 4096;
+const LEVELS: u8 = 10;
+const MIN_BYTES: usize = 2usize.pow(MIN as u32);
+const MAX_BYTES: usize = 2usize.pow((MIN + LEVELS - 1) as u32);
+const PAGE: u32 = 4096;
 
 pub struct BuddyAllocator {
     list_heads: [Option<&'static mut ListNode>; LEVELS as usize],
@@ -42,14 +47,35 @@ impl BuddyAllocator {
     /// # Safety
     /// This function is unsafe because the caller must guarantee that the given heap bounds are valid
     /// and that the heap is unused. This method must be called only onec.
-    pub unsafe fn init(&mut self, heap_start: usize, _heap_size: usize) {
-        // println!("mem start at {:x}", heap_start);
-        let ptr = heap_start as *mut ListNode;
-        unsafe {
-            (*ptr).level = LEVELS - 1;
-            (*ptr).flag = Flag::Free;
+    pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
+        let mut heap_left = heap_size;
+        let mut ptr = heap_start;
+        for level in (MIN..(LEVELS - 1)).rev() {
+            let block_size = 2usize.pow((MIN + level) as u32);
+            while heap_left > block_size {
+                println!("Creating level {} size {} at {:X}", level, block_size, ptr);
+                let node = ptr as *mut ListNode;
+                if let Some(old_node) = self.list_heads[level as usize].take() {
+                    unsafe {
+                        old_node.prev = Some(&mut *node);
+                        (*node).next = Some(old_node);
+                    }
+                } else {
+                    unsafe {
+                        (*node).next = None;
+                    }
+                }
+                unsafe {
+                    (*node).level = level;
+                    (*node).flag = Flag::Free;
+                    (*node).prev = None;
+                }
 
-            self.list_heads[self.list_heads.len() - 1] = Some(&mut *ptr)
+                self.list_heads[level as usize] = unsafe { Some(&mut *node) };
+
+                heap_left -= block_size;
+                ptr += block_size;
+            }
         }
     }
 }
@@ -58,12 +84,12 @@ impl ListNode {
     fn buddy(&mut self) -> *mut Self {
         let index = self.level;
         let mask = 0x1 << (index + MIN);
-        (self as *mut ListNode as i32 ^ mask) as *mut ListNode
+        (self as *mut ListNode as usize ^ mask) as *mut ListNode
     }
 
     fn split(&mut self) -> *mut Self {
         let index = self.level - 1;
-        let mask = 0x1 << (index + MIN);
+        let mask = 0x1 << (index + MIN) as usize;
         (self as *mut ListNode as usize | mask) as *mut ListNode
     }
 
@@ -74,12 +100,14 @@ impl ListNode {
         (self as *mut ListNode as i32 & mask) as *mut ListNode
     }
 
-    fn hide(&mut self) -> *mut u8 {
-        (self as *mut ListNode as *mut u8).wrapping_add(1)
+    fn hide(&mut self, layout: Layout) -> *mut u8 {
+        let size = core::cmp::max(layout.align(), size_of::<ListNode>());
+        (self as *mut ListNode as *mut u8).wrapping_add(size)
     }
 
-    fn magic(mem: *mut u8) -> *mut Self {
-        mem.wrapping_sub(1) as *mut ListNode
+    fn magic(mem: *mut u8, layout: Layout) -> *mut Self {
+        let size = core::cmp::max(layout.align(), size_of::<ListNode>());
+        mem.wrapping_sub(size) as *mut ListNode
     }
 }
 
@@ -98,7 +126,6 @@ fn level(req: usize) -> usize {
 
 impl BuddyAllocator {
     fn find(&mut self, level: usize) -> *mut u8 {
-        // println!("try and find mem at level {}", level);
         match self.list_heads[level].take() {
             Some(node) => {
                 self.list_heads[level] = node.next.take();
@@ -109,7 +136,6 @@ impl BuddyAllocator {
             None => {
                 let mut found_level = level + 1;
                 for current in (level + 1)..(LEVELS as usize) {
-                    // println!("checking {}", current);
                     if let Some(node) = self.list_heads[current].take() {
                         self.list_heads[current] = Some(node);
                         found_level += 1;
@@ -120,23 +146,20 @@ impl BuddyAllocator {
                 }
 
                 for current in ((level + 1)..found_level).rev() {
-                    // println!("spliting at {}", current);
                     match self.list_heads[current].take() {
                         Some(node) => {
-                            // println!("node at {:p}", node);
+                            self.list_heads[current] = node.next.take();
                             let buddy = (*node).split();
-                            // println!("buddy at {:p}", node);
 
                             node.level = (current - 1) as u8;
 
-                            // println!("node level updated");
-
                             unsafe { (*buddy).level = (current - 1) as u8 };
-
-                            // println!("buddy level updated");
+                            unsafe { (*buddy).flag = Flag::Free };
+                            unsafe { (*buddy).next = None };
+                            unsafe { (*buddy).prev = None };
 
                             node.next = unsafe { Some(&mut *buddy) };
-                            // println!("buddy added to list");
+
                             self.list_heads[current - 1] = Some(node);
                         }
                         None => {
@@ -182,12 +205,13 @@ unsafe impl GlobalAlloc for Locked<BuddyAllocator> {
         let mut allocator = self.lock();
         let level = level(layout.size());
         let node = allocator.find(level);
-        unsafe { (*(node as *mut ListNode)).hide() }
+        let ptr = (*(node as *mut ListNode)).hide(layout);
+        ptr
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let mut allocator = self.lock();
-        let node = ListNode::magic(ptr);
+        let node = ListNode::magic(ptr, layout);
         allocator.insert(node);
     }
 }

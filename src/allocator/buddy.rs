@@ -53,7 +53,6 @@ impl BuddyAllocator {
         for level in (MIN..(LEVELS - 1)).rev() {
             let block_size = 2usize.pow((MIN + level) as u32);
             while heap_left > block_size {
-                println!("Creating level {} size {} at {:X}", level, block_size, ptr);
                 let node = ptr as *mut ListNode;
                 if let Some(old_node) = self.list_heads[level as usize].take() {
                     unsafe {

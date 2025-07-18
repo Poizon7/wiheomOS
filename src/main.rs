@@ -24,13 +24,13 @@ fn main() -> ! {
     device_tree::init(dtb);
 
     unsafe { page::init_frame_allocator() };
-    let mut page_table = unsafe { page::init_page_table() };
-    allocator::init_heap(&mut page_table).unwrap();
+    let _page_table = unsafe { page::init_page_table() };
+    allocator::init_heap().unwrap();
     interrupt::interrupt_init();
 
     println!("Initializing done");
 
-    let mut reg = Satp::from_bits(0);
+    let reg = Satp::from_bits(0);
     println!("{:?}", reg.mode());
 
     loop {

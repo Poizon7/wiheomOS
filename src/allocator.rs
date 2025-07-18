@@ -10,6 +10,11 @@ use crate::page::FrameAllocator;
 pub mod buddy;
 pub mod fixed_size_block;
 
+unsafe extern "C" {
+    static __sheap: u8;
+    static __eheap: u8;
+}
+
 /// A wrapper around spin::Mutex to permit trait implementation.
 pub struct Locked<A> {
     inner: spin::Mutex<A>,
@@ -30,16 +35,17 @@ impl<A> Locked<A> {
 #[global_allocator]
 static ALLOCATOR: Locked<BuddyAllocator> = Locked::new(BuddyAllocator::new());
 
-pub const HEAP_SIZE: usize = 1024 * 1024;
-pub const HEAP_START: usize = 0x80700000;
 // pub const STACK_START: usize = RAM_START + RAM_SIZE;
 // pub const STACK_SIZE: usize = 1024;
 
 pub fn init_heap() -> PagingResult {
     println!("Initializing kernel heap");
+    let heap_start = unsafe { &__sheap as *const u8 as usize };
+    let heap_end = unsafe { &__eheap as *const u8 as usize };
+    let heap_size = heap_end - heap_start;
 
     unsafe {
-        ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
+        ALLOCATOR.lock().init(heap_start, heap_size);
     }
 
     println!("Finished initializing kernel heap");

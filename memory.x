@@ -14,6 +14,6 @@ REGION_ALIAS("REGION_HEAP",   HEAP);
 REGION_ALIAS("REGION_STACK",  RAM);            /* Stack also in RAM */
 
 _stack_start = ORIGIN(RAM) + LENGTH(RAM);      /* Top of RAM for stack */
-_heap_size = 1K;
+_heap_size = 1M;
 _hart_stack_size = 1K;
 _max_hart_id = 1;
